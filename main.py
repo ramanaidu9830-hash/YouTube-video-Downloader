@@ -21,21 +21,22 @@ class Video(BaseModel):
 @app.post("/download")
 def download_video(video: Video):
     try:
-        # pytubefix lo cookies syntax correct method
-        yt = YouTube(
-            video.url,
-            use_po_token=False
-        )
+        cookie_file = "cookies.txt"
         
-        # Cookies file location specify cheydam
-        cookie_path = os.path.abspath("cookies.txt")
-        if os.path.exists(cookie_path):
-            yt.client = 'WEB'
-        
+        # YouTube client call using cookies.txt and WEB client fallback
+        if os.path.exists(cookie_file):
+            yt = YouTube(
+                video.url,
+                cookies=cookie_file,
+                client='WEB'
+            )
+        else:
+            yt = YouTube(video.url, client='WEB')
+
         stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
         if stream is None:
             stream = yt.streams.get_highest_resolution()
-            
+
         if stream is None:
             raise HTTPException(status_code=404, detail="No suitable stream found")
 
