@@ -21,11 +21,11 @@ class Video(BaseModel):
 @app.post("/download")
 def download_video(video: Video):
     try:
-        ydl_opts = {
-            'cookiefile': 'cookies.txt',
-        }
-        
-        yt = YouTube(video.url)
+        # Pass cookies file directly to pytubefix
+        yt = YouTube(
+            video.url,
+            cookies="cookies.txt"
+        )
         
         stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
         if stream is None:
