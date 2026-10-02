@@ -21,13 +21,13 @@ class Video(BaseModel):
 @app.post("/download")
 def download_video(video: Video):
     try:
-        cookie_file = "cookies.txt"
+        cookie_path = os.path.abspath("cookies.txt")
         
-        # YouTube client call using cookies.txt and WEB client fallback
-        if os.path.exists(cookie_file):
+        # pytubefix accepts cookiefile (not cookies)
+        if os.path.exists(cookie_path):
             yt = YouTube(
                 video.url,
-                cookies=cookie_file,
+                cookiefile=cookie_path,
                 client='WEB'
             )
         else:
@@ -38,7 +38,7 @@ def download_video(video: Video):
             stream = yt.streams.get_highest_resolution()
 
         if stream is None:
-            raise HTTPException(status_code=404, detail="No suitable stream found")
+            raise HTTPException(status_code=404, detail="No suitable video stream found")
 
         download_folder = "downloads"
         if not os.path.exists(download_folder):
