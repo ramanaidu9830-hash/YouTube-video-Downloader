@@ -1,12 +1,15 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from pytubefix import YouTube
 import os
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+import yt_dlp
 
-app = FastAPI()
+app = FastAPI(
+    title="YouTube Video Downloader API",
+    description="API to extract video info and download links",
+    version="1.0.0"
+)
 
+# Enable CORS for frontend requests (allows HTML/JS to communicate with API)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,43 +18,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class Video(BaseModel):
-    url: str
+# Root route to fix "{"detail": "Not Found"}" error
+@app.get("/")
+def read_root():
+    return {
+        "status": "success",
+        "message": "YouTube Downloader API is active!",
+        "docs_url": "/docs"
+    }
 
-@app.post("/download")
-def download_video(video: Video):
+# Main endpoint used by script.js / downloader.html
+@app.get("/api/info")
+def get_video_info(url: str = Query(..., description="YouTube Video or Shorts URL")):
+    if not url:
+        raise HTTPException(status_code=400, detail="URL parameter is required")
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'format': 'best',
+    }
+
     try:
-        cookie_path = os.path.abspath("cookies.txt")
-        
-        # pytubefix accepts cookiefile (not cookies)
-        if os.path.exists(cookie_path):
-            yt = YouTube(
-                video.url,
-                cookiefile=cookie_path,
-                client='WEB'
-            )
-        else:
-            yt = YouTube(video.url, client='WEB')
-
-        stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
-        if stream is None:
-            stream = yt.streams.get_highest_resolution()
-
-        if stream is None:
-            raise HTTPException(status_code=404, detail="No suitable video stream found")
-
-        download_folder = "downloads"
-        if not os.path.exists(download_folder):
-            os.makedirs(download_folder)
-
-        download_path = stream.download(output_path=download_folder)
-        filename = os.path.basename(download_path)
-
-        return FileResponse(
-            path=download_path, 
-            filename=filename, 
-            media_type='video/mp4'
-        )
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            return {
+                "title": info.get("title"),
+                "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration"),
+                "download_url": info.get("url")  # Direct download URL
+            }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
