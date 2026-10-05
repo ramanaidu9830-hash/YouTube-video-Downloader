@@ -1,24 +1,11 @@
-import os
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
+import os
 
-app = FastAPI(
-    title="YouTube Video Downloader API",
-    description="API to extract video info and download links",
-    version="1.0.0"
-)
+app = FastAPI(title="YouTube Video Downloader API")
 
-# Enable CORS for frontend requests (allows HTML/JS to communicate with API)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+COOKIES_FILE = "cookies.txt"
 
-# Root route to fix "{"detail": "Not Found"}" error
 @app.get("/")
 def read_root():
     return {
@@ -27,28 +14,49 @@ def read_root():
         "docs_url": "/docs"
     }
 
-# Main endpoint used by script.js / downloader.html
 @app.get("/api/info")
-def get_video_info(url: str = Query(..., description="YouTube Video or Shorts URL")):
+def get_video_info(url: str = Query(..., description="YouTube Video URL")):
     if not url:
-        raise HTTPException(status_code=400, detail="URL parameter is required")
+        raise HTTPException(status_code=400, detail="URL is required")
 
+    # Ultra-flexible format rule to ensure YouTube Shorts match instantly
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'format': 'best',
+        'format': 'b/bv*+ba/best',
     }
+
+    if os.path.exists(COOKIES_FILE):
+        ydl_opts['cookiefile'] = COOKIES_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            return {
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "duration": info.get("duration"),
-                "download_url": info.get("url")  # Direct download URL
-            }
+            download_url = None
 
+            # 1. Check direct url field
+            if info.get('url'):
+                download_url = info.get('url')
+
+            # 2. Check requested_formats (video/audio split)
+            elif 'requested_formats' in info and info['requested_formats']:
+                download_url = info['requested_formats'][0].get('url')
+
+            # 3. Check formats list fallback
+            elif 'formats' in info and len(info['formats']) > 0:
+                # Get the last format entry that contains a valid url
+                valid_formats = [f for f in info['formats'] if f.get('url')]
+                if valid_formats:
+                    download_url = valid_formats[-1].get('url')
+
+            return {
+                "status": "success",
+                "title": info.get('title'),
+                "duration": info.get('duration'),
+                "uploader": info.get('uploader'),
+                "download_url": download_url,
+                "thumbnail": info.get('thumbnail')
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
