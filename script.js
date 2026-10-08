@@ -8,12 +8,10 @@ async function downloadVideo() {
     }
 
     const videoUrl = urlInput.value.trim();
+    resultDiv.innerHTML = "<p style='color: #ffc107;'>Processing video... Please wait (10-20 sec)</p>";
 
-    // Loading State
-    resultDiv.innerHTML = "<p style='color: #ffc107;'>Processing video... Please wait 10-30 seconds (Render server waking up)</p>";
-
-    // Render Live Backend Endpoint
-    const backendUrl = `https://youtube-video-downloader-1-h8vj.onrender.com/download?url=${encodeURIComponent(videoUrl)}`;
+    // Render URL with /get_video_info route matching your live backend
+    const backendUrl = `https://youtube-video-downloader-1-h8vj.onrender.com/get_video_info?url=${encodeURIComponent(videoUrl)}`;
 
     try {
         const response = await fetch(backendUrl);
@@ -23,9 +21,7 @@ async function downloadVideo() {
         }
 
         const data = await response.json();
-        console.log("Success Data:", data);
 
-        // Render result & download button
         resultDiv.innerHTML = `
             <div style="text-align: center; margin-top: 15px;">
                 <img src="${data.thumbnail || ''}" width="250" style="border-radius: 8px;" alt="Thumbnail" />
