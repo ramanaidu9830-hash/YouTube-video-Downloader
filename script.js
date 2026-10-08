@@ -1,78 +1,50 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const downloadBtn = document.getElementById("downloadBtn") || document.querySelector("button");
-    const urlInput = document.getElementById("videoUrl") || document.querySelector("input[type='text']");
-    const statusMessage = document.getElementById("statusMessage") || document.getElementById("error") || createStatusElement();
+async function downloadVideo() {
+    const urlInput = document.getElementById("videoUrl");
+    const resultDiv = document.getElementById("result");
 
-    function createStatusElement() {
-        const el = document.createElement("div");
-        el.id = "statusMessage";
-        el.style.marginTop = "15px";
-        el.style.fontWeight = "bold";
-        if (downloadBtn && downloadBtn.parentNode) {
-            downloadBtn.parentNode.appendChild(el);
+    if (!urlInput || !urlInput.value.trim()) {
+        alert("Please enter a valid YouTube URL");
+        return;
+    }
+
+    const videoUrl = urlInput.value.trim();
+
+    // Loading State
+    resultDiv.innerHTML = "<p style='color: #ffc107;'>Processing video... Please wait 10-30 seconds (Render server waking up)</p>";
+
+    // Render Live Backend Endpoint
+    const backendUrl = `https://youtube-video-downloader-1-h8vj.onrender.com/download?url=${encodeURIComponent(videoUrl)}`;
+
+    try {
+        const response = await fetch(backendUrl);
+
+        if (!response.ok) {
+            throw new Error(`Server returned status: ${response.status}`);
         }
-        return el;
+
+        const data = await response.json();
+        console.log("Success Data:", data);
+
+        // Render result & download button
+        resultDiv.innerHTML = `
+            <div style="text-align: center; margin-top: 15px;">
+                <img src="${data.thumbnail || ''}" width="250" style="border-radius: 8px;" alt="Thumbnail" />
+                <h3 style="color: white; margin: 10px 0;">${data.title || 'YouTube Video'}</h3>
+                <a href="${data.download_url}" target="_blank" download style="
+                    display: inline-block;
+                    padding: 10px 20px;
+                    background-color: #00d2ff;
+                    color: black;
+                    text-decoration: none;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    margin-top: 10px;
+                ">Download Video</a>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        resultDiv.innerHTML = `<p style="color: #ff4d4d;">Failed to fetch video: ${error.message}</p>`;
     }
-
-    if (downloadBtn) {
-        downloadBtn.addEventListener("click", async (e) => {
-            e.preventDefault();
-            
-            const videoUrl = urlInput ? urlInput.value.trim() : "";
-            if (!videoUrl) {
-                statusMessage.style.color = "red";
-                statusMessage.innerText = "Please enter a valid YouTube URL!";
-                return;
-            }
-
-            statusMessage.style.color = "#333";
-            statusMessage.innerText = "Processing video... Please wait.";
-            downloadBtn.disabled = true;
-
-            try {
-                const response = await fetch("https://youtube-video-downloader-1-h8vj.onrender.com/download", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ url: videoUrl }),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => null);
-                    const errorMessage = errorData && errorData.detail ? errorData.detail : "Download failed. Check URL or cookies.";
-                    throw new Error(errorMessage);
-                }
-
-                statusMessage.style.color = "green";
-                statusMessage.innerText = "Download starting...";
-
-                // Handle binary file download
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = downloadUrl;
-                
-                // Get filename from response header or default
-                const contentDisposition = response.headers.get("content-disposition");
-                let filename = "video.mp4";
-                if (contentDisposition && contentDisposition.includes("filename=")) {
-                    filename = contentDisposition.split("filename=")[1].replace(/["']/g, "");
-                }
-                
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(downloadUrl);
-
-                statusMessage.innerText = "Download completed successfully!";
-            } catch (err) {
-                statusMessage.style.color = "red";
-                statusMessage.innerText = `Error: ${err.message}`;
-            } finally {
-                downloadBtn.disabled = false;
-            }
-        });
-    }
-});
+}
