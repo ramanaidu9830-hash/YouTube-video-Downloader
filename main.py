@@ -4,7 +4,7 @@ import yt_dlp
 
 app = FastAPI()
 
-# Enable CORS for Frontend requests
+# Enable CORS for frontend requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,20 +19,26 @@ def read_root():
 
 @app.get("/get_video_info")
 def get_video_info(url: str):
+    if not url:
+        raise HTTPException(status_code=400, detail="URL parameter is required")
+
+    # Clean up tracking query parameters for YouTube Shorts links
+    clean_url = url.split("?")[0] if "shorts" in url else url
+
     ydl_opts = {
         'format': 'best',
         'quiet': True,
         'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info = ydl.extract_info(clean_url, download=False)
             return {
                 "title": info.get('title'),
                 "thumbnail": info.get('thumbnail'),
-                "download_url": info.get('url')
+                "url": info.get('url')
             }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
