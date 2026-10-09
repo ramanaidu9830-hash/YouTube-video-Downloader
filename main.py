@@ -17,7 +17,7 @@ app.add_middleware(
 def read_root():
     return {"message": "YouTube Downloader API is running live!"}
 
-@app.get("/download")
+@app.get("/get_video_info")
 def get_video_info(url: str):
     ydl_opts = {
         'format': 'best',
