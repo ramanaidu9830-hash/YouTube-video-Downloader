@@ -19,7 +19,6 @@ def home():
 
 @app.get("/get_video_info")
 def get_video_info(url: str):
-
     if not url:
         raise HTTPException(
             status_code=400,
