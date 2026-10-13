@@ -1,49 +1,66 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from urllib.parse import urlparse
 import yt_dlp
 
-app = FastAPI()
+app = FastAPI(title="YouTube Video Information API")
 
+# Allow requests from your Netlify website
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://unique-speculoos-b6ea0a.netlify.app"
+    ],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def home():
-    return {"message": "YouTube Downloader API is running!"}
+    return {
+        "message": "YouTube Downloader API is running!"
+    }
 
 
 @app.get("/get_video_info")
 def get_video_info(url: str):
-    if not url:
+
+    # Check empty URL
+    if not url or not url.strip():
         raise HTTPException(
             status_code=400,
-            detail="YouTube URL is required"
+            detail="Please enter a YouTube URL"
         )
 
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "skip_download": True,
-    }
+    url = url.strip()
 
+    # Validate the URL
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+        parsed_url = urlparse(url)
+        hostname = (parsed_url.hostname or "").lower()
 
-            return {
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "download_url": info.get("url"),
-            }
+        allowed_hosts = {
+            "youtube.com",
+            "www.youtube.com",
+            "m.youtube.com",
+            "youtu.be",
+            "www.youtube-nocookie.com",
+        }
 
-    except Exception as e:
+        if hostname not in allowed_hosts:
+            raise HTTPException(
+                status_code=400,
+                detail="Please enter a valid YouTube URL"
+            )
+
+    except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=str(e)
+            detail="Invalid URL"
         )
+
+    # Get video information only; do not download the video
+    ydl_opts = {
+        "
