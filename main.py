@@ -63,4 +63,42 @@ def get_video_info(url: str):
 
     # Get video information only; do not download the video
     ydl_opts = {
-        "
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "skip_download": True,
+        "socket_timeout": 20,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                url,
+                download=False
+            )
+
+            return {
+                "title": info.get("title"),
+                "thumbnail": info.get("thumbnail"),
+                "video_id": info.get("id"),
+                "webpage_url": info.get("webpage_url"),
+            }
+
+    except Exception as e:
+        error_message = str(e)
+
+        print("YouTube extraction error:", error_message)
+
+        if "Sign in to confirm" in error_message:
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "YouTube requires authentication for this request. "
+                    "Try again later or use an authorized video source."
+                )
+            )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to retrieve video information."
+        )
